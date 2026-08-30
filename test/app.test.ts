@@ -81,8 +81,10 @@ describe("planning poker worker", () => {
     expect(initialHtml).toContain("What’s your estimate?");
     expect(initialHtml).toContain("Ada");
 
+    expect((await roomAction(code, cookie, "new-round", {})).status).toBe(409);
     expect((await roomAction(code, cookie, "vote", { vote: "5" })).status).toBe(204);
     expect((await roomAction(code, cookie, "reveal", {})).status).toBe(204);
+    expect((await roomAction(code, cookie, "reveal", {})).status).toBe(409);
 
     const revealed = await SELF.fetch(`https://example.com/r/${code}`, { headers: { Cookie: cookie } });
     const revealedHtml = await revealed.text();
@@ -108,6 +110,12 @@ describe("planning poker worker", () => {
     const initialEvent = await readSseEvent(reader);
     expect(initialEvent).toContain("event: datastar-patch-elements");
     expect(initialEvent).toContain("data: elements <div id=\"room-shell\"");
+
+    const secondConnection = await SELF.fetch(`https://example.com/r/${code}/events`, { headers: { Cookie: cookie } });
+    expect(secondConnection.status).toBe(200);
+    const excessConnection = await SELF.fetch(`https://example.com/r/${code}/events`, { headers: { Cookie: cookie } });
+    expect(excessConnection.status).toBe(429);
+    await secondConnection.body!.cancel();
 
     expect((await roomAction(code, cookie, "vote", { vote: "8" })).status).toBe(204);
     const updateEvent = await readSseEvent(reader);
@@ -152,6 +160,17 @@ describe("planning poker worker", () => {
     expect(html).not.toContain("A".repeat(41));
     expect(html).toContain("R".repeat(60));
     expect(html).not.toContain("R".repeat(61));
+  });
+
+  it("rate limits repeated room mutations", async () => {
+    const { code, cookie } = await createRoom();
+    for (let index = 0; index < 10; index++) {
+      const response = await roomAction(code, cookie, "vote", { vote: index % 2 ? "1" : "2" });
+      expect(response.status).toBe(204);
+    }
+    const limited = await roomAction(code, cookie, "vote", { vote: "3" });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("10");
   });
 
   it("enforces a maximum of 20 participants", async () => {

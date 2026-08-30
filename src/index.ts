@@ -43,6 +43,10 @@ const SESSION_COOKIE = "pp_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 365;
 const INACTIVE_TTL_MS = 2 * 60 * 1000;
 const MAX_REQUEST_BODY_BYTES = 4 * 1024;
+const MAX_SUBSCRIBERS_PER_PARTICIPANT = 2;
+const MUTATION_WINDOW_MS = 10 * 1000;
+const MAX_PARTICIPANT_MUTATIONS = 10;
+const MAX_ROOM_MUTATIONS = 40;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ROOM_CODE_LENGTH = 6;
 const encoder = new TextEncoder();
@@ -82,8 +86,14 @@ function scriptResponse(script: string, status = 200): Response {
   return new Response(script, { status, headers: securityHeaders("text/javascript; charset=utf-8") });
 }
 
-function emptyResponse(status = 204): Response {
-  return new Response(null, { status, headers: securityHeaders("text/plain; charset=utf-8") });
+function emptyResponse(status = 204, extraHeaders?: HeadersInit): Response {
+  const headers = securityHeaders("text/plain; charset=utf-8");
+  new Headers(extraHeaders).forEach((value, name) => headers.set(name, value));
+  return new Response(null, { status, headers });
+}
+
+function rateLimitedResponse(): Response {
+  return emptyResponse(429, { "Retry-After": String(MUTATION_WINDOW_MS / 1000) });
 }
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -290,6 +300,8 @@ export default {
 export class PlanningRoom extends DurableObject<Env> {
   private readonly sql: SqlStorage;
   private readonly subscribers = new Map<number, Subscriber>();
+  private readonly participantMutationTimes = new Map<string, number[]>();
+  private roomMutationTimes: number[] = [];
   private nextSubscriberId = 0;
   private heartbeatId: number | undefined;
 
@@ -355,14 +367,20 @@ export class PlanningRoom extends DurableObject<Env> {
       if (!VOTE_OPTIONS.includes(vote as (typeof VOTE_OPTIONS)[number])) return emptyResponse(400);
       const room = this.roomRow();
       if (!room || Boolean(room.revealed)) return emptyResponse(409);
+      const current = this.sql.exec("SELECT vote FROM participants WHERE id = ?", participantId).toArray()[0] as { vote: string | null } | undefined;
+      if (current?.vote === vote) return emptyResponse();
+      if (!this.allowMutation(participantId)) return rateLimitedResponse();
       this.sql.exec("UPDATE participants SET vote = ?, last_seen = ? WHERE id = ?", vote, Date.now(), participantId);
       this.broadcast();
       return emptyResponse();
     }
 
     if (url.pathname === `/r/${code}/reveal` && request.method === "POST") {
+      const room = this.roomRow();
+      if (!room || Boolean(room.revealed)) return emptyResponse(409);
       const result = this.sql.exec("SELECT COUNT(*) AS count FROM participants WHERE vote IS NOT NULL").toArray()[0] as { count: number } | undefined;
       if ((result?.count ?? 0) === 0) return emptyResponse(409);
+      if (!this.allowMutation(participantId)) return rateLimitedResponse();
       this.sql.exec("UPDATE room SET revealed = 1 WHERE id = 1");
       this.touch(participantId);
       this.broadcast();
@@ -370,6 +388,9 @@ export class PlanningRoom extends DurableObject<Env> {
     }
 
     if (url.pathname === `/r/${code}/new-round` && request.method === "POST") {
+      const room = this.roomRow();
+      if (!room || !Boolean(room.revealed)) return emptyResponse(409);
+      if (!this.allowMutation(participantId)) return rateLimitedResponse();
       this.ctx.storage.transactionSync(() => {
         this.sql.exec("UPDATE room SET round = round + 1, revealed = 0 WHERE id = 1");
         this.sql.exec("UPDATE participants SET vote = NULL");
@@ -381,7 +402,8 @@ export class PlanningRoom extends DurableObject<Env> {
 
     if (url.pathname === `/r/${code}/leave` && request.method === "POST") {
       this.sql.exec("DELETE FROM participants WHERE id = ?", participantId);
-      this.broadcast(participantId);
+      this.participantMutationTimes.delete(participantId);
+      this.broadcast();
       return navigateResponse(request, "/");
     }
 
@@ -424,16 +446,19 @@ export class PlanningRoom extends DurableObject<Env> {
         : htmlResponse(renderJoinPage(state, "Enter a display name to join."), 400);
     }
 
-    const existing = this.hasParticipant(participantId);
-    if (!existing && this.participantCount() >= ROOM_LIMIT) {
+    const existingRow = this.sql.exec("SELECT name FROM participants WHERE id = ?", participantId).toArray()[0] as { name: string } | undefined;
+    if (!existingRow && this.participantCount() >= ROOM_LIMIT) {
       const state = this.getState(code);
       return isDatastarRequest(request)
         ? htmlResponse(renderJoinPanel(state, "This room is currently full."))
         : htmlResponse(renderJoinPage(state, "This room is currently full."), 409);
     }
 
+    if (existingRow?.name === name) return navigateResponse(request, `/r/${code}`);
+    if (!this.allowMutation(participantId)) return rateLimitedResponse();
+
     const now = Date.now();
-    if (existing) {
+    if (existingRow) {
       this.sql.exec("UPDATE participants SET name = ?, last_seen = ? WHERE id = ?", name, now, participantId);
     } else {
       this.sql.exec(
@@ -450,6 +475,8 @@ export class PlanningRoom extends DurableObject<Env> {
 
   private subscribe(request: Request, code: string, participantId: string): Response {
     if (!this.hasParticipant(participantId)) return emptyResponse(401);
+    const connectionCount = [...this.subscribers.values()].filter((subscriber) => subscriber.participantId === participantId).length;
+    if (connectionCount >= MAX_SUBSCRIBERS_PER_PARTICIPANT || !this.allowMutation(participantId)) return rateLimitedResponse();
 
     this.sql.exec("UPDATE participants SET connected = 1, last_seen = ? WHERE id = ?", Date.now(), participantId);
     const initialState = this.getState(code);
@@ -499,6 +526,25 @@ export class PlanningRoom extends DurableObject<Env> {
     this.sql.exec("UPDATE participants SET last_seen = ? WHERE id = ?", Date.now(), participantId);
   }
 
+  private allowMutation(participantId: string): boolean {
+    const cutoff = Date.now() - MUTATION_WINDOW_MS;
+    this.roomMutationTimes = this.roomMutationTimes.filter((timestamp) => timestamp > cutoff);
+    for (const [id, timestamps] of this.participantMutationTimes) {
+      const recent = timestamps.filter((timestamp) => timestamp > cutoff);
+      if (recent.length) this.participantMutationTimes.set(id, recent);
+      else this.participantMutationTimes.delete(id);
+    }
+
+    const participantTimes = this.participantMutationTimes.get(participantId) ?? [];
+    if (participantTimes.length >= MAX_PARTICIPANT_MUTATIONS || this.roomMutationTimes.length >= MAX_ROOM_MUTATIONS) return false;
+
+    const now = Date.now();
+    participantTimes.push(now);
+    this.participantMutationTimes.set(participantId, participantTimes);
+    this.roomMutationTimes.push(now);
+    return true;
+  }
+
   private pruneInactive(): void {
     this.sql.exec(
       "DELETE FROM participants WHERE connected = 0 AND last_seen < ?",
@@ -536,7 +582,16 @@ export class PlanningRoom extends DurableObject<Env> {
 
     for (const [subscriberId, subscriber] of this.subscribers) {
       if (subscriber.participantId === skipParticipantId) continue;
-      if (!state.participants.some((participant) => participant.id === subscriber.participantId)) continue;
+      const isPresent = state.participants.some((participant) => participant.id === subscriber.participantId);
+      if (!isPresent || subscriber.controller.desiredSize === null || subscriber.controller.desiredSize <= 0) {
+        try {
+          subscriber.controller.close();
+        } catch {
+          // The stream may already be closed.
+        }
+        this.removeSubscriber(subscriberId, subscriber.participantId, false);
+        continue;
+      }
       try {
         subscriber.controller.enqueue(encoder.encode(ssePatch(renderRoom(state, subscriber.participantId))));
       } catch {
@@ -573,6 +628,15 @@ export class PlanningRoom extends DurableObject<Env> {
     if (this.heartbeatId !== undefined) return;
     this.heartbeatId = setInterval(() => {
       for (const [subscriberId, subscriber] of this.subscribers) {
+        if (subscriber.controller.desiredSize === null || subscriber.controller.desiredSize <= 0) {
+          try {
+            subscriber.controller.close();
+          } catch {
+            // The stream may already be closed.
+          }
+          this.removeSubscriber(subscriberId, subscriber.participantId, false);
+          continue;
+        }
         try {
           subscriber.controller.enqueue(encoder.encode(": keep-alive\n\n"));
         } catch {
