@@ -123,6 +123,7 @@ h1, h2 { letter-spacing: -.045em; }
   align-items: center;
   gap: clamp(54px, 8vw, 112px);
 }
+.hero { display: flex; width: 100%; align-items: center; flex-direction: column; justify-self: center; }
 .proof-row { display: flex; flex-wrap: wrap; gap: 14px 25px; padding: 0; margin: 0; list-style: none; }
 .proof-row li { display: flex; align-items: center; gap: 8px; color: #4d4944; font-size: .9rem; font-weight: 700; }
 .proof-dot { width: 8px; height: 8px; border-radius: 99px; box-shadow: 0 0 0 4px rgba(32, 116, 74, .1); }
@@ -190,7 +191,7 @@ h1, h2 { letter-spacing: -.045em; }
 .btn-ghost:hover { color: var(--ink); }
 
 .form-error { padding: 11px 13px; margin: 0 0 16px; border: 1px solid #f2b7a5; border-radius: 10px; background: #fff1ec; color: #973714; font-size: .84rem; font-weight: 700; }
-.room-code-form { display: flex; max-width: 360px; gap: 8px; margin-top: 31px; }
+.room-code-form { display: flex; width: 100%; max-width: 360px; gap: 8px; margin: 31px auto 0; }
 .room-code-form input { min-width: 0; height: 45px; flex: 1; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.72); text-transform: uppercase; }
 .room-code-form button { min-height: 45px; }
 .feature-strip {
