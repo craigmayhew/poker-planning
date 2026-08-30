@@ -364,7 +364,7 @@ function header(): string {
   return `<header class="site-header shell">
     <div class="header-intro">
       <p class="eyebrow">Fast, calm estimation</p>
-      <p class="hero-copy">Lightweight planning poker for teams that want a decision—not another tool to manage.</p>
+      <p class="hero-copy">Lightweight planning poker for teams that want a decision, not another tool to manage.</p>
     </div>
     ${sourceLink()}
   </header>`;
