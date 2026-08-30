@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import {
   PARTICIPANT_NAME_LIMIT,
+  ROOM_CODE_LENGTH,
   ROOM_LIMIT,
   ROOM_NAME_LIMIT,
   VOTE_OPTIONS,
@@ -42,13 +43,14 @@ interface Subscriber {
 const SESSION_COOKIE = "pp_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 365;
 const INACTIVE_TTL_MS = 2 * 60 * 1000;
+const ROOM_IDLE_TTL_MS = 24 * 60 * 60 * 1000;
+const ROOM_EXPIRY_REFRESH_MS = 60 * 60 * 1000;
 const MAX_REQUEST_BODY_BYTES = 4 * 1024;
 const MAX_SUBSCRIBERS_PER_PARTICIPANT = 2;
 const MUTATION_WINDOW_MS = 10 * 1000;
 const MAX_PARTICIPANT_MUTATIONS = 10;
 const MAX_ROOM_MUTATIONS = 40;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const ROOM_CODE_LENGTH = 6;
 const encoder = new TextEncoder();
 
 function securityHeaders(contentType: string, scriptNonce?: string): Headers {
@@ -171,9 +173,13 @@ function randomRoomCode(): string {
   return Array.from(random, (byte) => ROOM_ALPHABET[byte % ROOM_ALPHABET.length]).join("");
 }
 
+function isRoomCode(value: string): boolean {
+  return value.length === ROOM_CODE_LENGTH && /^[A-Z0-9]+$/.test(value);
+}
+
 function normalizeRoomCode(value: string): string | null {
   const code = value.trim().toUpperCase();
-  return /^[A-Z0-9]{6}$/.test(code) ? code : null;
+  return isRoomCode(code) ? code : null;
 }
 
 function readSession(request: Request): string | null {
@@ -282,12 +288,12 @@ export default {
       const code = normalizeRoomCode(url.searchParams.get("code") ?? "");
       return code
         ? Response.redirect(`${url.origin}/r/${code}`, 302)
-        : htmlResponse(renderLanding("Enter a valid six-character room code."), 400);
+        : htmlResponse(renderLanding("Enter a valid room code."), 400);
     }
 
     if (routedRequest.method === "POST" && url.pathname === "/rooms") return createRoom(routedRequest, env);
 
-    const roomMatch = url.pathname.match(/^\/r\/([A-Za-z0-9]{6})(?:\/|$)/);
+    const roomMatch = url.pathname.match(/^\/r\/([A-Za-z0-9]{8})(?:\/|$)/);
     if (roomMatch?.[1]) {
       const code = normalizeRoomCode(roomMatch[1]);
       if (code) return forwardRoomRequest(routedRequest, env, code);
@@ -298,35 +304,15 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export class PlanningRoom extends DurableObject<Env> {
-  private readonly sql: SqlStorage;
   private readonly subscribers = new Map<number, Subscriber>();
   private readonly participantMutationTimes = new Map<string, number[]>();
   private roomMutationTimes: number[] = [];
   private nextSubscriberId = 0;
   private heartbeatId: number | undefined;
+  private presenceReset = false;
 
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.sql = ctx.storage.sql;
-    this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS room (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        code TEXT NOT NULL,
-        name TEXT NOT NULL,
-        round INTEGER NOT NULL DEFAULT 1,
-        revealed INTEGER NOT NULL DEFAULT 0,
-        created_at INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS participants (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        vote TEXT,
-        connected INTEGER NOT NULL DEFAULT 0,
-        joined_at INTEGER NOT NULL,
-        last_seen INTEGER NOT NULL
-      );
-    `);
-    this.sql.exec("UPDATE participants SET connected = 0");
+  private get sql(): SqlStorage {
+    return this.ctx.storage.sql;
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -336,11 +322,12 @@ export class PlanningRoom extends DurableObject<Env> {
 
     if (url.pathname === "/internal/create" && request.method === "POST") return this.create(request);
 
-    if (!this.isInitialized()) {
+    if (!isRoomCode(code) || !/^[a-f0-9]{32}$/.test(participantId)) return emptyResponse(400);
+
+    if (!await this.isInitialized()) {
       return htmlResponse(renderMessagePage("Room not found", "Check the room code or ask for a fresh invite link.", "ROOM / MISSING"), 404);
     }
-
-    if (!/^[A-Z0-9]{6}$/.test(code) || !/^[a-f0-9]{32}$/.test(participantId)) return emptyResponse(400);
+    this.resetPresence();
 
     if (url.pathname === `/r/${code}` && request.method === "GET") {
       this.pruneInactive();
@@ -348,6 +335,7 @@ export class PlanningRoom extends DurableObject<Env> {
       const participant = state.participants.find((person) => person.id === participantId);
       if (!participant) return htmlResponse(renderJoinPage(state));
       this.touch(participantId);
+      await this.extendRoomLifetime();
       return htmlResponse(renderRoomPage(state, participantId));
     }
 
@@ -371,6 +359,7 @@ export class PlanningRoom extends DurableObject<Env> {
       if (current?.vote === vote) return emptyResponse();
       if (!this.allowMutation(participantId)) return rateLimitedResponse();
       this.sql.exec("UPDATE participants SET vote = ?, last_seen = ? WHERE id = ?", vote, Date.now(), participantId);
+      await this.extendRoomLifetime();
       this.broadcast();
       return emptyResponse();
     }
@@ -383,6 +372,7 @@ export class PlanningRoom extends DurableObject<Env> {
       if (!this.allowMutation(participantId)) return rateLimitedResponse();
       this.sql.exec("UPDATE room SET revealed = 1 WHERE id = 1");
       this.touch(participantId);
+      await this.extendRoomLifetime();
       this.broadcast();
       return emptyResponse();
     }
@@ -396,6 +386,7 @@ export class PlanningRoom extends DurableObject<Env> {
         this.sql.exec("UPDATE participants SET vote = NULL");
       });
       this.touch(participantId);
+      await this.extendRoomLifetime();
       this.broadcast();
       return emptyResponse();
     }
@@ -403,23 +394,33 @@ export class PlanningRoom extends DurableObject<Env> {
     if (url.pathname === `/r/${code}/leave` && request.method === "POST") {
       this.sql.exec("DELETE FROM participants WHERE id = ?", participantId);
       this.participantMutationTimes.delete(participantId);
-      this.broadcast();
+      if (this.participantCount() === 0) {
+        await this.destroyRoom();
+      } else {
+        await this.extendRoomLifetime();
+        this.broadcast();
+      }
       return navigateResponse(request, "/");
     }
 
     return emptyResponse(404);
   }
 
-  private async create(request: Request): Promise<Response> {
-    if (this.isInitialized()) return emptyResponse(409);
+  override async alarm(): Promise<void> {
+    await this.destroyRoom();
+  }
 
+  private async create(request: Request): Promise<Response> {
     const fields = await readFields(request);
     const creatorName = cleanText(fields.creatorName, PARTICIPANT_NAME_LIMIT);
     const roomName = cleanText(fields.roomName, ROOM_NAME_LIMIT);
     const participantId = request.headers.get("x-session-id") ?? "";
     const code = request.headers.get("x-room-code") ?? "";
-    if (!creatorName || !roomName || !/^[A-Z0-9]{6}$/.test(code) || !/^[a-f0-9]{32}$/.test(participantId)) return emptyResponse(400);
+    if (!creatorName || !roomName || !isRoomCode(code) || !/^[a-f0-9]{32}$/.test(participantId)) return emptyResponse(400);
+    if (await this.isInitialized()) return emptyResponse(409);
 
+    this.ensureSchema();
+    await this.ctx.storage.put("initialized", true);
     const now = Date.now();
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("INSERT INTO room (id, code, name, round, revealed, created_at) VALUES (1, ?, ?, 1, 0, ?)", code, roomName, now);
@@ -431,6 +432,7 @@ export class PlanningRoom extends DurableObject<Env> {
         now,
       );
     });
+    await this.extendRoomLifetime();
     return emptyResponse(201);
   }
 
@@ -469,16 +471,18 @@ export class PlanningRoom extends DurableObject<Env> {
         now,
       );
     }
+    await this.extendRoomLifetime();
     this.broadcast();
     return navigateResponse(request, `/r/${code}`);
   }
 
-  private subscribe(request: Request, code: string, participantId: string): Response {
+  private async subscribe(request: Request, code: string, participantId: string): Promise<Response> {
     if (!this.hasParticipant(participantId)) return emptyResponse(401);
     const connectionCount = [...this.subscribers.values()].filter((subscriber) => subscriber.participantId === participantId).length;
     if (connectionCount >= MAX_SUBSCRIBERS_PER_PARTICIPANT || !this.allowMutation(participantId)) return rateLimitedResponse();
 
     this.sql.exec("UPDATE participants SET connected = 1, last_seen = ? WHERE id = ?", Date.now(), participantId);
+    await this.extendRoomLifetime();
     const initialState = this.getState(code);
     const subscriberId = ++this.nextSubscriberId;
     let cleanedUp = false;
@@ -505,8 +509,40 @@ export class PlanningRoom extends DurableObject<Env> {
     });
   }
 
-  private isInitialized(): boolean {
-    return this.sql.exec("SELECT id FROM room WHERE id = 1").toArray().length === 1;
+  private hasSchema(): boolean {
+    return this.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'room'").toArray().length === 1;
+  }
+
+  private ensureSchema(): void {
+    this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS room (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        code TEXT NOT NULL,
+        name TEXT NOT NULL,
+        round INTEGER NOT NULL DEFAULT 1,
+        revealed INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS participants (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        vote TEXT,
+        connected INTEGER NOT NULL DEFAULT 0,
+        joined_at INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL
+      );
+    `);
+  }
+
+  private async isInitialized(): Promise<boolean> {
+    const marker = await this.ctx.storage.get<boolean>("initialized");
+    return Boolean(marker) && this.hasSchema() && this.sql.exec("SELECT id FROM room WHERE id = 1").toArray().length === 1;
+  }
+
+  private resetPresence(): void {
+    if (this.presenceReset) return;
+    this.sql.exec("UPDATE participants SET connected = 0");
+    this.presenceReset = true;
   }
 
   private roomRow(): RoomRow | null {
@@ -543,6 +579,29 @@ export class PlanningRoom extends DurableObject<Env> {
     this.participantMutationTimes.set(participantId, participantTimes);
     this.roomMutationTimes.push(now);
     return true;
+  }
+
+  private async extendRoomLifetime(): Promise<void> {
+    const now = Date.now();
+    const alarm = await this.ctx.storage.getAlarm();
+    if (alarm === null || alarm < now + ROOM_IDLE_TTL_MS - ROOM_EXPIRY_REFRESH_MS) {
+      await this.ctx.storage.setAlarm(now + ROOM_IDLE_TTL_MS);
+    }
+  }
+
+  private async destroyRoom(): Promise<void> {
+    for (const subscriber of this.subscribers.values()) {
+      try {
+        subscriber.controller.close();
+      } catch {
+        // The subscriber may already have disconnected.
+      }
+    }
+    this.subscribers.clear();
+    this.stopHeartbeat();
+    this.participantMutationTimes.clear();
+    this.roomMutationTimes = [];
+    await this.ctx.storage.deleteAll();
   }
 
   private pruneInactive(): void {

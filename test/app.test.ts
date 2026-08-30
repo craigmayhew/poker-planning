@@ -1,4 +1,4 @@
-import { SELF } from "cloudflare:test";
+import { SELF, env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 interface CreatedRoom {
@@ -16,7 +16,7 @@ async function createRoom(name = "Ada", roomName = "Sprint planning"): Promise<C
     body: new URLSearchParams({ name, roomName }),
   });
   const script = await response.text();
-  const code = script.match(/\/r\/([A-Z0-9]{6})/)?.[1];
+  const code = script.match(/\/r\/([A-Z0-9]{8})/)?.[1];
   const cookie = response.headers.get("set-cookie")?.split(";", 1)[0];
 
   expect(response.status).toBe(200);
@@ -69,6 +69,9 @@ describe("planning poker worker", () => {
     const datastar = await SELF.fetch("https://example.com/datastar-1.0.3.js");
     expect(datastar.status).toBe(200);
     expect(await datastar.text()).toContain("Datastar v1.0.3");
+
+    const shortCode = await SELF.fetch("https://example.com/join?code=ABCDEF");
+    expect(shortCode.status).toBe(400);
   });
 
   it("creates an anonymous room and persists a complete round", async () => {
@@ -171,6 +174,15 @@ describe("planning poker worker", () => {
     const limited = await roomAction(code, cookie, "vote", { vote: "3" });
     expect(limited.status).toBe(429);
     expect(limited.headers.get("retry-after")).toBe("10");
+  });
+
+  it("schedules idle room expiry", async () => {
+    const { code } = await createRoom();
+    const rooms = (env as unknown as { ROOMS: DurableObjectNamespace }).ROOMS;
+    const stub = rooms.get(rooms.idFromName(code));
+    const alarm = await runInDurableObject(stub, (_instance, state) => state.storage.getAlarm());
+    expect(alarm).not.toBeNull();
+    expect(alarm!).toBeGreaterThan(Date.now());
   });
 
   it("enforces a maximum of 20 participants", async () => {

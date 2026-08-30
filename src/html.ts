@@ -1,6 +1,7 @@
 export const ROOM_LIMIT = 20;
 export const PARTICIPANT_NAME_LIMIT = 40;
 export const ROOM_NAME_LIMIT = 60;
+export const ROOM_CODE_LENGTH = 8;
 export const VOTE_OPTIONS = ["0", "½", "1", "2", "3", "5", "8", "13", "20", "40", "100", "?", "☕"] as const;
 
 const REPOSITORY_URL = "https://github.com/craigmayhew/poker-planning";
@@ -402,7 +403,7 @@ export function renderLanding(error = ""): string {
           <li><span class="proof-dot"></span>No nonsense</li>
         </ul>
         <form class="room-code-form" method="get" action="/join">
-          <input name="code" aria-label="Room code" minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="ROOM CODE" required>
+          <input name="code" aria-label="Room code" minlength="${ROOM_CODE_LENGTH}" maxlength="${ROOM_CODE_LENGTH}" pattern="[A-Za-z0-9]{${ROOM_CODE_LENGTH}}" placeholder="ROOM CODE" required>
           <button class="btn btn-soft" type="submit">Join</button>
         </form>
       </section>
