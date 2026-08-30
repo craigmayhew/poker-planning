@@ -420,8 +420,8 @@ export function renderLanding(error = ""): string {
         <p class="hero-copy">Lightweight planning poker for teams that want a decision—not another tool to manage.</p>
         <ul class="proof-row" aria-label="Key benefits">
           <li><span class="proof-dot"></span>No signups</li>
-          <li><span class="proof-dot"></span>Live results</li>
-          <li><span class="proof-dot"></span>Up to ${ROOM_LIMIT} people</li>
+          <li><span class="proof-dot"></span>No tracking</li>
+          <li><span class="proof-dot"></span>No nonsense</li>
         </ul>
         <form class="room-code-form" method="get" action="/join">
           <input name="code" aria-label="Room code" minlength="6" maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="ROOM CODE" required>
