@@ -1,6 +1,8 @@
 # Pocket Plan
 
-A small, real-time planning poker site built with [Datastar](https://data-star.dev/) and Cloudflare Workers. Each room maps to one SQLite-backed Cloudflare Durable Object, giving its participants a single strongly consistent source of truth.
+A small, real-time planning poker site built with [Datastar](https://data-star.dev/) and [Cloudflare Workers](https://developers.cloudflare.com/workers/). Each room maps to one SQLite-backed [Cloudflare Durable Object](https://developers.cloudflare.com/durable-objects/), giving its participants a single strongly consistent source of truth.
+
+**Live site:** [poker.codefutures.uk](https://poker.codefutures.uk/)
 
 ## Features
 
@@ -37,7 +39,7 @@ Disconnected participants remain reserved for two minutes to tolerate refreshes 
 - Rate-limited room actions—including joins, votes, reveals, new rounds, and SSE subscriptions—are capped at 10 per participant and 40 per room in each 10-second window.
 - Each participant may open up to two SSE connections. Slow consumers are disconnected rather than allowed to accumulate unbounded queued updates.
 
-These controls are scoped to individual rooms. They do not globally limit creation of new rooms, so a public deployment expecting abuse should add a Cloudflare Rate Limiting or WAF rule for `POST /rooms`.
+These controls are scoped to individual rooms. They do not globally limit creation of new rooms, so a public deployment expecting abuse should add a [Cloudflare rate-limiting rule](https://developers.cloudflare.com/waf/rate-limiting-rules/) for `POST /rooms`.
 
 ## Local development
 
@@ -62,7 +64,7 @@ GitHub Actions runs type-checking, tests, and a Wrangler deployment dry-run for 
 
 ## Deploy
 
-Authenticate Wrangler once, then deploy the Worker and its Durable Object migration:
+Authenticate [Wrangler](https://developers.cloudflare.com/workers/wrangler/) once, then deploy the Worker and its Durable Object migration:
 
 ```sh
 npx wrangler login
