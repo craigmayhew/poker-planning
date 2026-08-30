@@ -89,26 +89,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   line-height: 1.4;
   text-wrap: pretty;
 }
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-size: .95rem;
-  font-weight: 800;
-  letter-spacing: -.02em;
-  text-decoration: none;
-}
-.brand-mark {
-  display: grid;
-  width: 39px;
-  height: 39px;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--ink);
-  color: var(--paper);
-  box-shadow: 0 7px 20px rgba(29, 29, 31, .15);
-}
-.brand-mark svg { width: 23px; height: 23px; }
 .source-link {
   display: inline-flex;
   align-items: center;
@@ -239,7 +219,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
 .room-page { min-height: 100vh; }
 .room-header { border-bottom: 1px solid rgba(107, 93, 75, .17); background: rgba(255, 250, 242, .76); backdrop-filter: blur(16px); }
 .room-header-inner { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 20px; }
-.room-meta { display: flex; min-width: 0; align-items: center; gap: 14px; }
 .room-meta-text { min-width: 0; }
 .room-meta-text strong { display: block; overflow: hidden; font-size: .95rem; text-overflow: ellipsis; white-space: nowrap; }
 .room-meta-text span { color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .7rem; font-weight: 700; letter-spacing: .1em; }
@@ -328,7 +307,7 @@ h1, h2, h3 { letter-spacing: -.045em; }
   .feature-strip { grid-template-columns: 1fr; }
   .feature { min-height: 0; }
   .room-header-inner { min-height: 68px; }
-  .room-meta .brand > span, .room-meta-text span, .header-actions .btn-ghost { display: none; }
+  .room-meta-text span, .header-actions .btn-ghost { display: none; }
   .room-main { padding-top: 22px; }
   .round-banner { align-items: flex-start; }
   .vote-grid { grid-template-columns: repeat(4, 1fr); }
@@ -359,14 +338,6 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
-function logo(): string {
-  return `<a class="brand" href="/" aria-label="Pocket Plan home">
-    <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="3.5" width="17" height="17" rx="4" stroke="currentColor"/><path d="M8 16V8h5.2a3 3 0 0 1 0 6H8m0-3h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </span>
-    <span>Pocket Plan</span>
-  </a>`;
-}
 
 function page(title: string, content: string, description: string): string {
   return `<!doctype html>
@@ -537,7 +508,7 @@ export function renderRoom(state: RoomState, viewerId: string): string {
   return `<div id="room-shell" class="room-page" data-signals="{copied: false}" data-init="@get('/r/${state.code}/events', {retry: 'always', retryMaxCount: 1000, retryMaxWait: 10000})">
     <header class="room-header">
       <div class="room-header-inner shell">
-        <div class="room-meta">${logo()}<div class="room-meta-text"><strong>${escapeHtml(state.name)}</strong><span>ROOM ${state.code}</span></div></div>
+        <div class="room-meta-text"><strong>${escapeHtml(state.name)}</strong><span>ROOM ${state.code}</span></div>
         <div class="header-actions">
           <button class="btn btn-ghost" type="button" data-on:click="navigator.clipboard.writeText(location.href).then(() => { $copied = true; setTimeout(() => $copied = false, 1600) })" data-text="$copied ? 'Copied' : 'Copy link'">Copy link</button>
           <button class="btn btn-ghost" type="button" data-on:click="@post('/r/${state.code}/leave', {payload: {}})">Leave</button>
