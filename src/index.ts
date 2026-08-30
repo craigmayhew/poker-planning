@@ -637,6 +637,7 @@ export class PlanningRoom extends DurableObject<Env> {
     const room = this.roomRow();
     if (!room) return;
     const state = this.getState(room.code, room);
+    const participantPatches = new Map<string, Uint8Array>();
 
     for (const [subscriberId, subscriber] of this.subscribers) {
       if (subscriber.participantId === skipParticipantId) continue;
@@ -651,7 +652,12 @@ export class PlanningRoom extends DurableObject<Env> {
         continue;
       }
       try {
-        subscriber.controller.enqueue(encoder.encode(ssePatch(renderRoom(state, subscriber.participantId))));
+        let patch = participantPatches.get(subscriber.participantId);
+        if (!patch) {
+          patch = encoder.encode(ssePatch(renderRoom(state, subscriber.participantId)));
+          participantPatches.set(subscriber.participantId, patch);
+        }
+        subscriber.controller.enqueue(patch);
       } catch {
         this.removeSubscriber(subscriberId, subscriber.participantId, false);
       }

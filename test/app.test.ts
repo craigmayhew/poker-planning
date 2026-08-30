@@ -116,14 +116,19 @@ describe("planning poker worker", () => {
 
     const secondConnection = await SELF.fetch(`https://example.com/r/${code}/events`, { headers: { Cookie: cookie } });
     expect(secondConnection.status).toBe(200);
+    const secondReader = secondConnection.body!.getReader();
+    expect(await readSseEvent(secondReader)).toContain("event: datastar-patch-elements");
+
     const excessConnection = await SELF.fetch(`https://example.com/r/${code}/events`, { headers: { Cookie: cookie } });
     expect(excessConnection.status).toBe(429);
-    await secondConnection.body!.cancel();
 
     expect((await roomAction(code, cookie, "vote", { vote: "8" })).status).toBe(204);
     const updateEvent = await readSseEvent(reader);
+    const secondUpdateEvent = await readSseEvent(secondReader);
     expect(updateEvent).toContain("vote-card selected");
     expect(updateEvent).toContain("aria-label=\"Vote 8\"");
+    expect(secondUpdateEvent).toBe(updateEvent);
+    await secondReader.cancel();
     await reader.cancel();
   });
 
