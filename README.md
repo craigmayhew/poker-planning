@@ -76,3 +76,7 @@ The first deploy creates the `PlanningRoom` SQLite-backed Durable Object namespa
 ## Datastar
 
 Datastar `v1.0.3` is pinned and self-hosted at `public/datastar-1.0.3.js` to avoid a production CDN dependency. The checked-in client is roughly 33 KiB (13 KiB gzip), and its MIT license is included in `public/THIRD_PARTY_LICENSES.txt`.
+
+## License
+
+This project is licensed under the [MIT License](./LICENSE).
