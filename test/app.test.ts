@@ -54,6 +54,11 @@ describe("planning poker worker", () => {
     const page = await SELF.fetch("https://example.com/");
     const html = await page.text();
     expect(page.status).toBe(200);
+    const nonce = html.match(/data-nonce="([a-f0-9]{32})"/)?.[1];
+    expect(nonce).toBeTruthy();
+    expect(html).toContain(`nonce="${nonce}"`);
+    expect(page.headers.get("content-security-policy")).toContain(`script-src 'nonce-${nonce}' 'strict-dynamic'`);
+    expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(html).toContain("Fast, calm estimation");
     expect(html).toContain("Lightweight planning poker for teams that want a decision—not another tool to manage.");
     expect(html).not.toContain('aria-label="Pocket Plan home"');
@@ -118,6 +123,35 @@ describe("planning poker worker", () => {
     expect(html).toContain("&lt;script&gt;Ada&lt;/script&gt;");
     expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
     expect(html).not.toContain("<script>Ada</script>");
+  });
+
+  it("bounds request bodies and rejects cross-origin mutations", async () => {
+    const crossOrigin = await SELF.fetch("https://example.com/rooms", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Origin: "https://attacker.example",
+      },
+      body: new URLSearchParams({ name: "Mallory" }),
+    });
+    expect(crossOrigin.status).toBe(403);
+
+    const oversized = await SELF.fetch("https://example.com/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ name: "A".repeat(5_000) }),
+    });
+    expect(oversized.status).toBe(413);
+  });
+
+  it("truncates persisted names and room names at their server-side limits", async () => {
+    const { code, cookie } = await createRoom("A".repeat(200), "R".repeat(200));
+    const response = await SELF.fetch(`https://example.com/r/${code}`, { headers: { Cookie: cookie } });
+    const html = await response.text();
+    expect(html).toContain("A".repeat(40));
+    expect(html).not.toContain("A".repeat(41));
+    expect(html).toContain("R".repeat(60));
+    expect(html).not.toContain("R".repeat(61));
   });
 
   it("enforces a maximum of 20 participants", async () => {

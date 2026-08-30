@@ -1,4 +1,6 @@
 export const ROOM_LIMIT = 20;
+export const PARTICIPANT_NAME_LIMIT = 40;
+export const ROOM_NAME_LIMIT = 60;
 export const VOTE_OPTIONS = ["0", "½", "1", "2", "3", "5", "8", "13", "20", "40", "100", "?", "☕"] as const;
 
 const REPOSITORY_URL = "https://github.com/craigmayhew/poker-planning";
@@ -375,11 +377,11 @@ export function renderCreatePanel(error = ""): string {
       ${error ? `<p class="form-error" role="alert">${escapeHtml(error)}</p>` : ""}
       <div class="field">
         <label for="creator-name">Your name</label>
-        <input id="creator-name" name="name" autocomplete="name" maxlength="40" required placeholder="Ada Lovelace">
+        <input id="creator-name" name="name" autocomplete="name" maxlength="${PARTICIPANT_NAME_LIMIT}" required placeholder="Ada Lovelace">
       </div>
       <div class="field">
         <label for="room-name">Room name <span style="color:var(--muted);font-weight:600">(optional)</span></label>
-        <input id="room-name" name="roomName" maxlength="60" placeholder="Monday sprint">
+        <input id="room-name" name="roomName" maxlength="${ROOM_NAME_LIMIT}" placeholder="Monday sprint">
       </div>
       <button class="btn btn-primary" type="submit" data-attr:disabled="$creating">
         <span data-text="$creating ? 'Creating room…' : 'Create room'">Create room</span>
@@ -430,7 +432,7 @@ export function renderJoinPanel(state: RoomState, error = ""): string {
       ${error ? `<p class="form-error" role="alert">${escapeHtml(error)}</p>` : ""}
       <div class="field">
         <label for="display-name">Your name</label>
-        <input id="display-name" name="name" autocomplete="name" maxlength="40" required autofocus placeholder="Grace Hopper">
+        <input id="display-name" name="name" autocomplete="name" maxlength="${PARTICIPANT_NAME_LIMIT}" required autofocus placeholder="Grace Hopper">
       </div>
       <button class="btn btn-primary" type="submit" data-attr:disabled="$joining"><span data-text="$joining ? 'Joining…' : 'Join room'">Join room</span><span aria-hidden="true">→</span></button>
     </form>`}

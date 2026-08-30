@@ -1,6 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  PARTICIPANT_NAME_LIMIT,
   ROOM_LIMIT,
+  ROOM_NAME_LIMIT,
   VOTE_OPTIONS,
   renderCreatePanel,
   renderJoinPage,
@@ -40,23 +42,40 @@ interface Subscriber {
 const SESSION_COOKIE = "pp_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 365;
 const INACTIVE_TTL_MS = 2 * 60 * 1000;
+const MAX_REQUEST_BODY_BYTES = 4 * 1024;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const ROOM_CODE_LENGTH = 6;
 const encoder = new TextEncoder();
 
-function securityHeaders(contentType: string): Headers {
-  return new Headers({
+function securityHeaders(contentType: string, scriptNonce?: string): Headers {
+  const headers = new Headers({
     "Content-Type": contentType,
     "Cache-Control": "no-store",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Cross-Origin-Resource-Policy": "same-origin",
     "Referrer-Policy": "same-origin",
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
   });
+  if (scriptNonce) {
+    headers.set(
+      "Content-Security-Policy",
+      `default-src 'none'; script-src 'nonce-${scriptNonce}' 'strict-dynamic'; script-src-attr 'none'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'`,
+    );
+  }
+  return headers;
 }
 
 function htmlResponse(body: string, status = 200): Response {
-  return new Response(body, { status, headers: securityHeaders("text/html; charset=utf-8") });
+  let scriptNonce: string | undefined;
+  if (body.startsWith("<!doctype html>")) {
+    scriptNonce = randomToken();
+    body = body
+      .replace('<html lang="en">', `<html lang="en" data-nonce="${scriptNonce}">`)
+      .replace('<script type="module"', `<script type="module" nonce="${scriptNonce}"`);
+  }
+  return new Response(body, { status, headers: securityHeaders("text/html; charset=utf-8", scriptNonce) });
 }
 
 function scriptResponse(script: string, status = 200): Response {
@@ -68,7 +87,39 @@ function emptyResponse(status = 204): Response {
 }
 
 function cleanText(value: unknown, maxLength: number): string {
-  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
+  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f-\u009f\s]+/g, " ").trim().slice(0, maxLength) : "";
+}
+
+class PayloadTooLargeError extends Error {}
+
+function isSameOriginMutation(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== new URL(request.url).origin) return false;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  return !fetchSite || fetchSite === "same-origin" || fetchSite === "none";
+}
+
+async function limitRequestBody(request: Request): Promise<Request> {
+  if (!request.body) return request;
+
+  const declaredLength = request.headers.get("content-length");
+  if (declaredLength && Number(declaredLength) > MAX_REQUEST_BODY_BYTES) throw new PayloadTooLargeError();
+
+  const reader = request.body.getReader();
+  const body = new Uint8Array(MAX_REQUEST_BODY_BYTES);
+  let length = 0;
+  while (true) {
+    const chunk = await reader.read();
+    if (chunk.done) break;
+    if (chunk.value.byteLength > MAX_REQUEST_BODY_BYTES - length) {
+      await reader.cancel();
+      throw new PayloadTooLargeError();
+    }
+    body.set(chunk.value, length);
+    length += chunk.value.byteLength;
+  }
+
+  return new Request(request, { body: length ? body.slice(0, length) : null });
 }
 
 async function readFields(request: Request): Promise<Record<string, unknown>> {
@@ -153,8 +204,8 @@ function roomStub(env: Env, code: string): DurableObjectStub {
 
 async function createRoom(request: Request, env: Env): Promise<Response> {
   const fields = await readFields(request);
-  const creatorName = cleanText(fields.name, 40);
-  const requestedName = cleanText(fields.roomName, 60);
+  const creatorName = cleanText(fields.name, PARTICIPANT_NAME_LIMIT);
+  const requestedName = cleanText(fields.roomName, ROOM_NAME_LIMIT);
 
   if (!creatorName) {
     return isDatastarRequest(request)
@@ -203,23 +254,33 @@ async function forwardRoomRequest(request: Request, env: Env, code: string): Pro
 
 export default {
   async fetch(request, env): Promise<Response> {
-    const url = new URL(request.url);
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method) && !isSameOriginMutation(request)) return emptyResponse(403);
 
-    if (request.method === "GET" && url.pathname === "/") return htmlResponse(renderLanding());
+    let routedRequest: Request = request;
+    try {
+      routedRequest = await limitRequestBody(request);
+    } catch (error) {
+      if (error instanceof PayloadTooLargeError) return emptyResponse(413);
+      throw error;
+    }
 
-    if (request.method === "GET" && url.pathname === "/join") {
+    const url = new URL(routedRequest.url);
+
+    if (routedRequest.method === "GET" && url.pathname === "/") return htmlResponse(renderLanding());
+
+    if (routedRequest.method === "GET" && url.pathname === "/join") {
       const code = normalizeRoomCode(url.searchParams.get("code") ?? "");
       return code
         ? Response.redirect(`${url.origin}/r/${code}`, 302)
         : htmlResponse(renderLanding("Enter a valid six-character room code."), 400);
     }
 
-    if (request.method === "POST" && url.pathname === "/rooms") return createRoom(request, env);
+    if (routedRequest.method === "POST" && url.pathname === "/rooms") return createRoom(routedRequest, env);
 
     const roomMatch = url.pathname.match(/^\/r\/([A-Za-z0-9]{6})(?:\/|$)/);
     if (roomMatch?.[1]) {
       const code = normalizeRoomCode(roomMatch[1]);
-      if (code) return forwardRoomRequest(request, env, code);
+      if (code) return forwardRoomRequest(routedRequest, env, code);
     }
 
     return htmlResponse(renderMessagePage("Page not found", "That page or planning room doesn’t exist.", "ERROR / 404"), 404);
@@ -331,8 +392,8 @@ export class PlanningRoom extends DurableObject<Env> {
     if (this.isInitialized()) return emptyResponse(409);
 
     const fields = await readFields(request);
-    const creatorName = cleanText(fields.creatorName, 40);
-    const roomName = cleanText(fields.roomName, 60);
+    const creatorName = cleanText(fields.creatorName, PARTICIPANT_NAME_LIMIT);
+    const roomName = cleanText(fields.roomName, ROOM_NAME_LIMIT);
     const participantId = request.headers.get("x-session-id") ?? "";
     const code = request.headers.get("x-room-code") ?? "";
     if (!creatorName || !roomName || !/^[A-Z0-9]{6}$/.test(code) || !/^[a-f0-9]{32}$/.test(participantId)) return emptyResponse(400);
@@ -353,7 +414,7 @@ export class PlanningRoom extends DurableObject<Env> {
 
   private async join(request: Request, code: string, participantId: string): Promise<Response> {
     const fields = await readFields(request);
-    const name = cleanText(fields.name, 40);
+    const name = cleanText(fields.name, PARTICIPANT_NAME_LIMIT);
     this.pruneInactive();
 
     if (!name) {
