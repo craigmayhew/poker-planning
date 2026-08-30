@@ -54,7 +54,7 @@ describe("planning poker worker", () => {
     const page = await SELF.fetch("https://example.com/");
     const html = await page.text();
     expect(page.status).toBe(200);
-    expect(html).toContain("Point together.");
+    expect(html).toContain("Fast, calm estimation");
     expect(html).toContain("/datastar-1.0.3.js");
 
     const datastar = await SELF.fetch("https://example.com/datastar-1.0.3.js");

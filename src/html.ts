@@ -115,14 +115,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
   align-items: center;
   gap: clamp(54px, 8vw, 112px);
 }
-.hero h1 {
-  max-width: 760px;
-  margin-bottom: 24px;
-  font-size: clamp(3.15rem, 7.8vw, 7rem);
-  line-height: .91;
-  text-wrap: balance;
-}
-.hero h1 em { color: var(--accent); font-style: normal; }
 .hero-copy {
   max-width: 620px;
   margin-bottom: 35px;
@@ -314,7 +306,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
   .shell { width: min(100% - 24px, 1180px); }
   .site-header { min-height: 72px; }
   .landing-main { padding-top: 42px; }
-  .hero h1 { font-size: clamp(3.1rem, 16vw, 5rem); }
   .feature-strip { grid-template-columns: 1fr; }
   .feature { min-height: 0; }
   .room-header-inner { min-height: 68px; }
@@ -408,7 +399,6 @@ export function renderLanding(error = ""): string {
     <div class="hero-grid">
       <section class="hero">
         <p class="eyebrow">Fast, calm estimation</p>
-        <h1>Point together.<br><em>Move faster.</em></h1>
         <p class="hero-copy">Lightweight planning poker for teams that want a decision—not another tool to manage.</p>
         <ul class="proof-row" aria-label="Key benefits">
           <li><span class="proof-dot"></span>No signups</li>
