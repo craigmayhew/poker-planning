@@ -27,7 +27,6 @@ const styles = String.raw`
   --ink: #1d1d1f;
   --muted: #6e6b66;
   --paper: #fffaf2;
-  --panel: #fffefb;
   --line: #ded8cd;
   --soft: #f4ede2;
   --accent: #f05a2a;
@@ -113,8 +112,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   text-transform: uppercase;
 }
 .eyebrow::before { width: 24px; height: 2px; content: ""; background: currentColor; }
-h1, h2, h3, p { margin-top: 0; }
-h1, h2, h3 { letter-spacing: -.045em; }
+h1, h2, p { margin-top: 0; }
+h1, h2 { letter-spacing: -.045em; }
 .landing-main { padding: 70px 0 86px; }
 .hero-grid {
   display: grid;
@@ -126,8 +125,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
 .proof-row li { display: flex; align-items: center; gap: 8px; color: #4d4944; font-size: .9rem; font-weight: 700; }
 .proof-dot { width: 8px; height: 8px; border-radius: 99px; box-shadow: 0 0 0 4px rgba(32, 116, 74, .1); }
 .create-card, .join-card, .message-card {
-  position: relative;
-  overflow: hidden;
   padding: clamp(25px, 4vw, 38px);
   border: 1px solid rgba(120, 101, 79, .22);
   border-radius: 28px;
@@ -135,6 +132,8 @@ h1, h2, h3 { letter-spacing: -.045em; }
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
 }
+.create-card { position: relative; overflow: hidden; }
+.create-card > * { position: relative; z-index: 1; }
 .create-card::after {
   position: absolute;
   top: -54px;
@@ -147,10 +146,10 @@ h1, h2, h3 { letter-spacing: -.045em; }
   opacity: .62;
   filter: blur(1px);
 }
-.card-number { position: relative; z-index: 1; margin-bottom: 22px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .73rem; font-weight: 700; letter-spacing: .08em; }
-.create-card h2, .join-card h1, .message-card h1 { position: relative; z-index: 1; margin-bottom: 9px; font-size: clamp(1.8rem, 3.6vw, 2.55rem); }
-.card-copy { position: relative; z-index: 1; margin-bottom: 27px; color: var(--muted); line-height: 1.55; }
-.field { position: relative; z-index: 1; display: grid; gap: 8px; margin-bottom: 16px; }
+.card-number { margin-bottom: 22px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .73rem; font-weight: 700; letter-spacing: .08em; }
+.create-card h2, .join-card h1, .message-card h1 { margin-bottom: 9px; font-size: clamp(1.8rem, 3.6vw, 2.55rem); }
+.card-copy { margin-bottom: 27px; color: var(--muted); line-height: 1.55; }
+.field { display: grid; gap: 8px; margin-bottom: 16px; }
 .field label { font-size: .78rem; font-weight: 800; }
 .field input {
   width: 100%;
@@ -187,8 +186,8 @@ h1, h2, h3 { letter-spacing: -.045em; }
 .btn-soft:not(:disabled):hover { background: var(--soft); }
 .btn-ghost { min-height: 40px; padding-inline: 12px; background: transparent; color: var(--muted); font-size: .84rem; }
 .btn-ghost:hover { color: var(--ink); }
-.btn svg { width: 17px; height: 17px; }
-.form-error { position: relative; z-index: 1; padding: 11px 13px; margin: 0 0 16px; border: 1px solid #f2b7a5; border-radius: 10px; background: #fff1ec; color: #973714; font-size: .84rem; font-weight: 700; }
+
+.form-error { padding: 11px 13px; margin: 0 0 16px; border: 1px solid #f2b7a5; border-radius: 10px; background: #fff1ec; color: #973714; font-size: .84rem; font-weight: 700; }
 .room-code-form { display: flex; max-width: 360px; gap: 8px; margin-top: 31px; }
 .room-code-form input { min-width: 0; height: 45px; flex: 1; padding: 0 13px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.72); text-transform: uppercase; }
 .room-code-form button { min-height: 45px; }
@@ -208,15 +207,13 @@ h1, h2, h3 { letter-spacing: -.045em; }
 .feature-icon { display: grid; width: 36px; height: 36px; margin-bottom: 22px; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent-dark); font-weight: 900; }
 .simple-main { display: grid; min-height: calc(100vh - 176px); place-items: center; padding: 40px 0 90px; }
 .join-wrap { width: min(500px, 100%); }
-.join-card { overflow: visible; }
-.room-token { display: inline-flex; padding: 7px 10px; margin-bottom: 19px; border-radius: 9px; background: var(--soft); color: #57514b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .73rem; font-weight: 800; letter-spacing: .13em; }
+.room-token { display: inline-block; padding: 7px 10px; margin-bottom: 19px; border-radius: 9px; background: var(--soft); color: #57514b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .73rem; font-weight: 800; letter-spacing: .13em; }
 .capacity { display: flex; align-items: center; gap: 9px; margin: -12px 0 24px; color: var(--muted); font-size: .82rem; }
 .capacity-meter { display: flex; gap: 3px; }
 .capacity-meter i { width: 5px; height: 13px; border-radius: 3px; background: var(--line); }
 .capacity-meter i.filled { background: var(--green); }
-.back-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 21px; color: var(--muted); font-size: .84rem; font-weight: 700; text-decoration: none; }
+.back-link { display: inline-block; margin-top: 21px; color: var(--muted); font-size: .84rem; font-weight: 700; text-decoration: none; }
 .back-link:hover { color: var(--ink); }
-.room-page { min-height: 100vh; }
 .room-header { border-bottom: 1px solid rgba(107, 93, 75, .17); background: rgba(255, 250, 242, .76); backdrop-filter: blur(16px); }
 .room-header-inner { display: flex; min-height: 76px; align-items: center; justify-content: space-between; gap: 20px; }
 .room-meta-text { min-width: 0; }
@@ -274,7 +271,7 @@ h1, h2, h3 { letter-spacing: -.045em; }
 .vote-status.revealed { min-width: 30px; width: auto; padding-inline: 7px; background: var(--ink); color: white; }
 .presence-note { padding-top: 16px; margin: 16px 0 0; border-top: 1px solid var(--line); color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .results-intro { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 22px; }
-.result-callout { display: inline-flex; align-items: center; gap: 8px; padding: 8px 11px; border-radius: 10px; background: var(--lime); color: #334b17; font-size: .78rem; font-weight: 850; }
+.result-callout { display: inline-block; padding: 8px 11px; border-radius: 10px; background: var(--lime); color: #334b17; font-size: .78rem; font-weight: 850; }
 .result-metric { color: var(--muted); font-size: .78rem; }
 .result-metric strong { color: var(--ink); font-size: 1rem; }
 .distribution { display: grid; gap: 11px; }
@@ -298,7 +295,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
   .room-grid { grid-template-columns: 1fr; }
   .presence-panel { position: static; }
   .people { grid-template-columns: repeat(2, 1fr); }
-  .presence-note { grid-column: 1 / -1; }
 }
 @media (max-width: 680px) {
   .shell { width: min(100% - 24px, 1180px); }
@@ -505,7 +501,7 @@ function renderVoting(state: RoomState, viewerId: string): string {
 export function renderRoom(state: RoomState, viewerId: string): string {
   const voted = state.participants.filter((participant) => participant.vote !== null).length;
   const canReveal = voted > 0 && !state.revealed;
-  return `<div id="room-shell" class="room-page" data-signals="{copied: false}" data-init="@get('/r/${state.code}/events', {retry: 'always', retryMaxCount: 1000, retryMaxWait: 10000})">
+  return `<div id="room-shell" data-signals="{copied: false}" data-init="@get('/r/${state.code}/events', {retry: 'always', retryMaxCount: 1000, retryMaxWait: 10000})">
     <header class="room-header">
       <div class="room-header-inner shell">
         <div class="room-meta-text"><strong>${escapeHtml(state.name)}</strong><span>ROOM ${state.code}</span></div>
