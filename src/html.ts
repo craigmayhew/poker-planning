@@ -117,7 +117,6 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .eyebrow::before { width: 24px; height: 2px; content: ""; background: currentColor; }
 h1, h2, p { margin-top: 0; }
 h1, h2 { letter-spacing: -.045em; }
-.landing-main { padding: 70px 0 86px; }
 .hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(330px, .72fr);
@@ -198,7 +197,7 @@ h1, h2 { letter-spacing: -.045em; }
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1px;
-  margin-top: 100px;
+  margin-top: 40px;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 20px;
