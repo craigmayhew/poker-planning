@@ -52,6 +52,7 @@ const MAX_PARTICIPANT_MUTATIONS = 10;
 const MAX_ROOM_MUTATIONS = 40;
 const ROOM_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const encoder = new TextEncoder();
+const HEARTBEAT_BYTES = encoder.encode(": keep-alive\n\n");
 
 function securityHeaders(contentType: string, scriptNonce?: string): Headers {
   const headers = new Headers({
@@ -698,7 +699,7 @@ export class PlanningRoom extends DurableObject<Env> {
           continue;
         }
         try {
-          subscriber.controller.enqueue(encoder.encode(": keep-alive\n\n"));
+          subscriber.controller.enqueue(HEARTBEAT_BYTES);
         } catch {
           this.removeSubscriber(subscriberId, subscriber.participantId, false);
         }
