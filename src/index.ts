@@ -611,8 +611,7 @@ export class PlanningRoom extends DurableObject<Env> {
     );
   }
 
-  private getState(code: string): RoomState {
-    const room = this.roomRow();
+  private getState(code: string, room: RoomRow | null = this.roomRow()): RoomState {
     if (!room) throw new Error("Room is not initialized");
     const rows = this.sql.exec(
       "SELECT id, name, vote, connected, joined_at FROM participants ORDER BY connected DESC, joined_at ASC",
@@ -635,9 +634,9 @@ export class PlanningRoom extends DurableObject<Env> {
 
   private broadcast(skipParticipantId?: string): void {
     if (this.subscribers.size === 0) return;
-    const roomCode = this.currentRoomCode();
-    if (!roomCode) return;
-    const state = this.getState(roomCode);
+    const room = this.roomRow();
+    if (!room) return;
+    const state = this.getState(room.code, room);
 
     for (const [subscriberId, subscriber] of this.subscribers) {
       if (subscriber.participantId === skipParticipantId) continue;
@@ -657,10 +656,6 @@ export class PlanningRoom extends DurableObject<Env> {
         this.removeSubscriber(subscriberId, subscriber.participantId, false);
       }
     }
-  }
-
-  private currentRoomCode(): string | null {
-    return this.roomRow()?.code ?? null;
   }
 
   private removeSubscriber(subscriberId: number, participantId: string, shouldBroadcast: boolean): void {
