@@ -1,4 +1,4 @@
-# Pocket Plan
+# Poker Plan
 
 A small, real-time planning poker site built with [Datastar](https://data-star.dev/) and [Cloudflare Workers](https://developers.cloudflare.com/workers/). Each room maps to one SQLite-backed [Cloudflare Durable Object](https://developers.cloudflare.com/durable-objects/), giving its participants a single strongly consistent source of truth.
 

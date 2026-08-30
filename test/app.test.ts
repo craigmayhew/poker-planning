@@ -61,7 +61,7 @@ describe("planning poker worker", () => {
     expect(page.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(html).toContain("Fast, calm estimation");
     expect(html).toContain("Lightweight planning poker for teams that want a decision, not another tool to manage.");
-    expect(html).not.toContain('aria-label="Pocket Plan home"');
+    expect(html).not.toContain('aria-label="Poker Plan home"');
     expect(html).toContain("/datastar-1.0.3.js");
     expect(html).toContain('href="https://github.com/craigmayhew/poker-planning"');
     expect(html).toContain('rel="noopener noreferrer"');

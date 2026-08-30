@@ -347,7 +347,7 @@ function page(title: string, content: string, description: string): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="${escapeHtml(description)}">
   <meta name="theme-color" content="#fffaf2">
-  <title>${escapeHtml(title)} · Pocket Plan</title>
+  <title>${escapeHtml(title)} · Poker Plan</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>${styles}</style>
   <script type="module" src="/datastar-1.0.3.js"></script>
