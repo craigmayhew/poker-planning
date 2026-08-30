@@ -135,8 +135,8 @@ h1, h2 { letter-spacing: -.045em; }
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
 }
-.create-card { position: relative; overflow: hidden; }
-.create-card > * { position: relative; z-index: 1; }
+.create-card, .join-card { position: relative; overflow: hidden; }
+.create-card > *, .join-card > * { position: relative; z-index: 1; }
 .create-card::after {
   position: absolute;
   top: -54px;
@@ -398,15 +398,17 @@ export function renderLanding(error = ""): string {
   <main class="landing-main shell">
     <div class="hero-grid">
       <section class="hero">
-        <ul class="proof-row" aria-label="Key benefits">
-          <li><span class="proof-dot"></span>No signups</li>
-          <li><span class="proof-dot"></span>No tracking</li>
-          <li><span class="proof-dot"></span>No nonsense</li>
-        </ul>
-        <form class="room-code-form" method="get" action="/join">
-          <input name="code" aria-label="Room code" minlength="${ROOM_CODE_LENGTH}" maxlength="${ROOM_CODE_LENGTH}" pattern="[A-Za-z0-9]{${ROOM_CODE_LENGTH}}" placeholder="ROOM CODE" required>
-          <button class="btn btn-soft" type="submit">Join</button>
-        </form>
+        <div class="join-card">
+          <ul class="proof-row" aria-label="Key benefits">
+            <li><span class="proof-dot"></span>No signups</li>
+            <li><span class="proof-dot"></span>No tracking</li>
+            <li><span class="proof-dot"></span>No nonsense</li>
+          </ul>
+          <form class="room-code-form" method="get" action="/join">
+            <input name="code" aria-label="Room code" minlength="${ROOM_CODE_LENGTH}" maxlength="${ROOM_CODE_LENGTH}" pattern="[A-Za-z0-9]{${ROOM_CODE_LENGTH}}" placeholder="ROOM CODE" required>
+            <button class="btn btn-soft" type="submit">Join</button>
+          </form>
+        </div>
       </section>
       ${renderCreatePanel(error)}
     </div>
