@@ -76,6 +76,19 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   min-height: 88px;
   gap: 20px;
 }
+.header-intro {
+  display: grid;
+  gap: 5px;
+  padding-block: 16px;
+}
+.header-intro .hero-copy {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+  font-size: .9rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
 .brand {
   display: inline-flex;
   align-items: center;
@@ -112,7 +125,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin: 0 0 14px;
+  margin: 0;
   color: var(--accent-dark);
   font-size: .76rem;
   font-weight: 850;
@@ -128,14 +141,6 @@ h1, h2, h3 { letter-spacing: -.045em; }
   grid-template-columns: minmax(0, 1.1fr) minmax(330px, .72fr);
   align-items: center;
   gap: clamp(54px, 8vw, 112px);
-}
-.hero-copy {
-  max-width: 620px;
-  margin-bottom: 35px;
-  color: var(--muted);
-  font-size: clamp(1.08rem, 2vw, 1.32rem);
-  line-height: 1.55;
-  text-wrap: pretty;
 }
 .proof-row { display: flex; flex-wrap: wrap; gap: 14px 25px; padding: 0; margin: 0; list-style: none; }
 .proof-row li { display: flex; align-items: center; gap: 8px; color: #4d4944; font-size: .9rem; font-weight: 700; }
@@ -385,7 +390,13 @@ function sourceLink(label = "View source"): string {
 }
 
 function header(): string {
-  return `<header class="site-header shell">${logo()}${sourceLink()}</header>`;
+  return `<header class="site-header shell">
+    <div class="header-intro">
+      <p class="eyebrow">Fast, calm estimation</p>
+      <p class="hero-copy">Lightweight planning poker for teams that want a decision—not another tool to manage.</p>
+    </div>
+    ${sourceLink()}
+  </header>`;
 }
 
 export function renderCreatePanel(error = ""): string {
@@ -416,8 +427,6 @@ export function renderLanding(error = ""): string {
   <main class="landing-main shell">
     <div class="hero-grid">
       <section class="hero">
-        <p class="eyebrow">Fast, calm estimation</p>
-        <p class="hero-copy">Lightweight planning poker for teams that want a decision—not another tool to manage.</p>
         <ul class="proof-row" aria-label="Key benefits">
           <li><span class="proof-dot"></span>No signups</li>
           <li><span class="proof-dot"></span>No tracking</li>
