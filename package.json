@@ -1,0 +1,20 @@
+{
+  "name": "poker-planning",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.12.21",
+    "@cloudflare/workers-types": "4.20260310.1",
+    "typescript": "5.8.3",
+    "vitest": "3.2.4",
+    "wrangler": "4.72.0"
+  }
+}
