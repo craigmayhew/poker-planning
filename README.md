@@ -71,7 +71,7 @@ npx wrangler login
 npm run deploy
 ```
 
-The first deploy creates the `PlanningRoom` SQLite-backed Durable Object namespace declared in `wrangler.jsonc`. No secrets are needed. The configuration explicitly enables the `workers.dev` route, deployment preview URLs, and Workers observability.
+The first deploy creates the `PlanningRoom` SQLite-backed Durable Object namespace declared in `wrangler.jsonc`. No secrets are needed. The configuration explicitly disables the `workers.dev` route and deployment preview URLs, while enabling Workers observability with a 1% head-sampling rate.
 
 ## Datastar
 
