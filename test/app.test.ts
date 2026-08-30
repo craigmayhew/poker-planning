@@ -56,6 +56,8 @@ describe("planning poker worker", () => {
     expect(page.status).toBe(200);
     expect(html).toContain("Fast, calm estimation");
     expect(html).toContain("/datastar-1.0.3.js");
+    expect(html).toContain('href="https://github.com/craigmayhew/poker-planning"');
+    expect(html).toContain('rel="noopener noreferrer"');
 
     const datastar = await SELF.fetch("https://example.com/datastar-1.0.3.js");
     expect(datastar.status).toBe(200);

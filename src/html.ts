@@ -1,6 +1,8 @@
 export const ROOM_LIMIT = 20;
 export const VOTE_OPTIONS = ["0", "½", "1", "2", "3", "5", "8", "13", "20", "40", "100", "?", "☕"] as const;
 
+const REPOSITORY_URL = "https://github.com/craigmayhew/poker-planning";
+
 export type Vote = (typeof VOTE_OPTIONS)[number];
 
 export interface Participant {
@@ -94,6 +96,18 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   box-shadow: 0 7px 20px rgba(29, 29, 31, .15);
 }
 .brand-mark svg { width: 23px; height: 23px; }
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+  text-decoration: none;
+  transition: color .15s;
+}
+.source-link:hover { color: var(--ink); }
+.source-link span { color: var(--accent-dark); }
 .eyebrow {
   display: inline-flex;
   align-items: center;
@@ -366,8 +380,12 @@ function page(title: string, content: string, description: string): string {
 </html>`;
 }
 
+function sourceLink(label = "View source"): string {
+  return `<a class="source-link" href="${REPOSITORY_URL}" target="_blank" rel="noopener noreferrer" aria-label="${label} on GitHub (opens in a new tab)">${label}<span aria-hidden="true">↗</span></a>`;
+}
+
 function header(): string {
-  return `<header class="site-header shell">${logo()}<span class="eyebrow" style="margin:0">Planning poker</span></header>`;
+  return `<header class="site-header shell">${logo()}${sourceLink()}</header>`;
 }
 
 export function renderCreatePanel(error = ""): string {
@@ -541,7 +559,7 @@ export function renderRoom(state: RoomState, viewerId: string): string {
         </aside>
       </div>
     </main>
-    <footer class="room-footer shell">No accounts. No tracking. Just the room.</footer>
+    <footer class="room-footer shell">No accounts. No tracking. ${sourceLink("Verify the code")}</footer>
   </div>`;
 }
 
