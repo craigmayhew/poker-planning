@@ -139,7 +139,7 @@ h1, h2, h3 { letter-spacing: -.045em; }
 }
 .proof-row { display: flex; flex-wrap: wrap; gap: 14px 25px; padding: 0; margin: 0; list-style: none; }
 .proof-row li { display: flex; align-items: center; gap: 8px; color: #4d4944; font-size: .9rem; font-weight: 700; }
-.proof-dot { width: 8px; height: 8px; border-radius: 99px; background: var(--green); box-shadow: 0 0 0 4px rgba(32, 116, 74, .1); }
+.proof-dot { width: 8px; height: 8px; border-radius: 99px; box-shadow: 0 0 0 4px rgba(32, 116, 74, .1); }
 .create-card, .join-card, .message-card {
   position: relative;
   overflow: hidden;
