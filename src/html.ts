@@ -205,9 +205,10 @@ h1, h2 { letter-spacing: -.045em; }
   background: var(--line);
 }
 .feature { min-height: 155px; padding: 27px; background: rgba(255, 254, 251, .78); }
-.feature strong { display: block; margin-bottom: 8px; font-size: 1rem; }
+.feature-heading { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.feature strong { display: block; font-size: 1rem; }
 .feature p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.55; }
-.feature-icon { display: grid; width: 36px; height: 36px; margin-bottom: 22px; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent-dark); font-weight: 900; }
+.feature-icon { display: grid; width: 36px; height: 36px; flex: 0 0 auto; place-items: center; border-radius: 10px; background: var(--soft); color: var(--accent-dark); font-weight: 900; }
 .simple-main { display: grid; min-height: calc(100vh - 176px); place-items: center; padding: 40px 0 90px; }
 .join-wrap { width: min(500px, 100%); }
 .room-token { display: inline-block; padding: 7px 10px; margin-bottom: 19px; border-radius: 9px; background: var(--soft); color: #57514b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .73rem; font-weight: 800; letter-spacing: .13em; }
@@ -410,9 +411,9 @@ export function renderLanding(error = ""): string {
       ${renderCreatePanel(error)}
     </div>
     <section class="feature-strip" aria-label="Features">
-      <article class="feature"><span class="feature-icon">01</span><strong>Instant rooms</strong><p>One short form. Share the link and start estimating in seconds.</p></article>
-      <article class="feature"><span class="feature-icon">02</span><strong>Everyone stays in sync</strong><p>Votes and reveals update live with tiny server-sent HTML patches.</p></article>
-      <article class="feature"><span class="feature-icon">03</span><strong>State that lasts</strong><p>Each room is backed by its own strongly consistent Durable Object.</p></article>
+      <article class="feature"><div class="feature-heading"><span class="feature-icon">01</span><strong>Instant rooms</strong></div><p>One short form. Share the link and start estimating in seconds.</p></article>
+      <article class="feature"><div class="feature-heading"><span class="feature-icon">02</span><strong>Everyone stays in sync</strong></div><p>Votes and reveals update live with tiny server-sent HTML patches.</p></article>
+      <article class="feature"><div class="feature-heading"><span class="feature-icon">03</span><strong>State that lasts</strong></div><p>Each room is backed by its own strongly consistent Durable Object.</p></article>
     </section>
   </main>`;
   return page("Planning poker", content, "Quick, anonymous planning poker for teams of up to 20 people.");
